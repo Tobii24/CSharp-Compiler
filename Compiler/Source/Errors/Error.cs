@@ -1,12 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Compiler.Source
+namespace Compiler.Source.Errors
 {
-    class Error
+    abstract class Error
     {
         public Position PosStart { get; }
         public Position PosEnd { get; }
@@ -17,8 +13,11 @@ namespace Compiler.Source
         {
             var res = "";
 
+            //Console.WriteLine($"{pos_start} {pos_end}");
+
             //Calculate indices
-            int idx_start = Math.Max(text.LastIndexOf('\n', pos_start.Index), 0);
+
+            int idx_start = Math.Max(text.LastIndexOf('\n', pos_start.Index-1), 0);
             int idx_end = text.IndexOf('\n', idx_start+1);
             if (idx_end < 0)
                 idx_end = text.Length;
@@ -32,10 +31,12 @@ namespace Compiler.Source
 
                 var col_start = 0;
                 if (i == 0)
-                    col_start = pos_start.Column;
+                    col_start = pos_end.Column - 1;
                 var col_end = line.Length - 1;
                 if (i == line_count - 1)
-                    col_end = pos_end.Column;
+                    col_end = pos_end.Column - col_start;
+
+                //Console.WriteLine($"{col_start} {col_end}");
 
                 //Append to result
                 res += line + "\n";
@@ -61,7 +62,14 @@ namespace Compiler.Source
             Details = details;
         }
 
-        public override string ToString()
+        public void Throw()
+        {
+            Console.ForegroundColor = ConsoleColor.DarkRed;
+            Console.WriteLine(AsString());
+            Console.ResetColor();
+        }
+
+        private string AsString()
         {
             var res = $"{ErrorName}: {Details}\n";
             res += $"File {PosStart.Filename}, line {PosStart.Line + 1}\n\n";
@@ -69,11 +77,5 @@ namespace Compiler.Source
 
             return res;
         }
-    }
-
-    class IllegalCharError : Error
-    {
-        public IllegalCharError(Position posStart, Position posEnd, string details) 
-            : base(posStart, posEnd, "Illegal Character", details) { }
     }
 }

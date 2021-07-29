@@ -1,14 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Compiler.Source
 {
-    class SyntaxToken
+    public class SyntaxToken : SyntaxNode
     {
-        public SyntaxType Type { get; }
+        public override SyntaxType Type { get; }
         public Position PosStart { get; }
         public Position PosEnd { get; }
         public string Text { get; }
@@ -31,16 +28,16 @@ namespace Compiler.Source
                 PosEnd = posEnd.Copy();
         }
 
-        public bool Matches(SyntaxType type, object value)
-        {
-            return Type == type && Value == value;
-        }
-
         public override string ToString()
         {
             if (Value != null)
                 return $"{Type}: {Text} => ({Value})";
             return $"{Type}: {Text}";
+        }
+
+        public override IEnumerable<SyntaxNode> GetChildren()
+        {
+            return Enumerable.Empty<SyntaxNode>();
         }
     }
 }

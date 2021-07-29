@@ -1,6 +1,6 @@
 ﻿namespace Compiler.Source
 {
-    class Position
+    public class Position
     {
         public int Index { get; set; }
         public int Line { get; set; }
@@ -32,6 +32,11 @@
         public Position Copy()
         {
             return new Position(Index, Line, Column, Filename, Filetext);
+        }
+
+        public override string ToString()
+        {
+            return $"Pos(Idx: {Index}, Ln: {Line}, Col: {Column})";
         }
     }
 }

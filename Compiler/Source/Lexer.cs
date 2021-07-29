@@ -2,10 +2,11 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Compiler.Source.Errors;
 
 namespace Compiler.Source
 {
-    class Lexer
+    internal sealed class Lexer
     {
         private readonly string _text;
         private readonly string _filename;
@@ -41,7 +42,7 @@ namespace Compiler.Source
             while (CurrentChar != null)
             {
                 #region Ignore indentation
-                if (CurrentChar == '\t' || CurrentChar == ' ')
+                if (CurrentChar == '\t' || CurrentChar == ' ' || CurrentChar == '\n')
                 {
                     Next();
                 }
@@ -83,53 +84,63 @@ namespace Compiler.Source
                 #region Operation Symbols [-, +, *, /, ^] & Parenthesis
                 else if (CurrentChar == '+')
                 {
-                    tokens.Add(new SyntaxToken(SyntaxType.PlusToken, "+", null, _position));
                     Next();
+                    tokens.Add(new SyntaxToken(SyntaxType.PlusToken, "+", null, _position));
                 }
                 else if (CurrentChar == '-')
                 {
-                    tokens.Add(new SyntaxToken(SyntaxType.MinusToken, "-", null, _position));
                     Next();
+                    tokens.Add(new SyntaxToken(SyntaxType.MinusToken, "-", null, _position));
                 }
                 else if (CurrentChar == '*')
                 {
-                    tokens.Add(new SyntaxToken(SyntaxType.StarToken, "*", null, _position));
                     Next();
+                    tokens.Add(new SyntaxToken(SyntaxType.StarToken, "*", null, _position));
                 }
                 else if (CurrentChar == '/')
                 {
-                    tokens.Add(new SyntaxToken(SyntaxType.SlashToken, "/", null, _position));
                     Next();
+                    tokens.Add(new SyntaxToken(SyntaxType.SlashToken, "/", null, _position));
                 }
                 else if (CurrentChar == '^')
                 {
-                    tokens.Add(new SyntaxToken(SyntaxType.PowToken, "^", null, _position));
                     Next();
+                    tokens.Add(new SyntaxToken(SyntaxType.PowToken, "^", null, _position));
                 }
                 else if (CurrentChar == '(')
                 {
-                    tokens.Add(new SyntaxToken(SyntaxType.OPToken, "(", null, _position));
                     Next();
+                    tokens.Add(new SyntaxToken(SyntaxType.OpenParenthesisToken, "(", null, _position));
                 }
                 else if (CurrentChar == ')')
                 {
-                    tokens.Add(new SyntaxToken(SyntaxType.CPToken, ")", null, _position));
                     Next();
+                    tokens.Add(new SyntaxToken(SyntaxType.CloseParenthesisToken, ")", null, _position));
+                }
+                #endregion
+
+                #region Semicolon (newline ref)
+                else if (CurrentChar == ';')
+                {
+                    Next();
+                    tokens.Add(new SyntaxToken(SyntaxType.SemicolonToken, ";", null, _position));
                 }
                 #endregion
 
                 #region Unknown Character
                 else
                 {
-                    var pos_start = _position.Copy();
+                    var _posStart = _position.Copy();
                     char? Char = CurrentChar;
                     Next();
-                    return (null, new IllegalCharError(pos_start, _position, $"'{Char}'"));
+                    return (Array.Empty<SyntaxToken>(), new IllegalCharError(_posStart, _position, $"'{Char}'"));
                 }
                 #endregion
             }
 
-            tokens.Add(new SyntaxToken(SyntaxType.EndOfFile, "\0", null, _position));
+            Next();
+
+            tokens.Add(new SyntaxToken(SyntaxType.EndOfFileToken, "\0", null, _position));
             return (tokens.ToArray(), null);
         }
     }
