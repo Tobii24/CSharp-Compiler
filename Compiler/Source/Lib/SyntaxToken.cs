@@ -1,31 +1,31 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
-namespace Compiler.Source
+namespace Compiler.Source.Lib
 {
     public class SyntaxToken : SyntaxNode
     {
         public override SyntaxType Type { get; }
-        public Position PosStart { get; }
-        public Position PosEnd { get; }
         public string Text { get; }
         public object Value { get; }
 
-        public SyntaxToken(SyntaxType type, string text, object value, Position posStart=null, Position posEnd = null)
+        public SyntaxToken(SyntaxType type, string text, object value)
         {
             Type = type;
             Text = text;
             Value = value;
+        }
 
-            if (posStart != null)
+        public bool IsUnaryOperator()
+        {
+            switch (Type)
             {
-                PosStart = posStart.Copy();
-                PosEnd = posStart.Copy();
-                PosEnd.Advance();
+                case SyntaxType.PlusToken:
+                case SyntaxType.MinusToken:
+                    return true;
+                default:
+                    return false;
             }
-
-            if (posEnd != null)
-                PosEnd = posEnd.Copy();
         }
 
         public override string ToString()

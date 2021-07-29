@@ -2,21 +2,32 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
+
 using Compiler.Source.Errors;
+using Compiler.Source.Lib;
 
 namespace Compiler.Source
 {
     internal sealed class Lexer
     {
+        private enum KeywordType
+        {
+            DeclareVariable
+        }
+
         private readonly string _text;
-        private readonly string _filename;
         private Position _position;
+        private Dictionary<string, KeywordType> keywordRef;
+        public DiagnosticBag _diagnostics;
 
         public Lexer(string filename, string text)
         {
             _text = text;
-            _filename = filename;
-            _position = new Position(0, 0, 0, filename, text);
+            _position = new Position(0, 0, 0, filename);
+            _diagnostics = new DiagnosticBag();
+            keywordRef = new Dictionary<string, KeywordType>();
+
+            keywordRef.Add("declare", KeywordType.DeclareVariable);
         }
 
         private char? CurrentChar
@@ -35,7 +46,7 @@ namespace Compiler.Source
             _position.Advance(CurrentChar);
         }
 
-        public (SyntaxToken[], Error) GetTokens()
+        public SyntaxToken[] Lex()
         {
             var tokens = new List<SyntaxToken>();
 
@@ -51,7 +62,6 @@ namespace Compiler.Source
                 #region Numbers
                 else if (char.IsDigit((char)CurrentChar))
                 {
-                    var pos_start = _position.Copy();
                     string end_num = "";
                     int dot_count = 0;
 
@@ -72,7 +82,7 @@ namespace Compiler.Source
                     if (dot_count == 1)
                     {
                         float val = float.Parse(end_num, CultureInfo.InvariantCulture);
-                        tokens.Add(new SyntaxToken(SyntaxType.NumberToken, end_num, val, pos_start, _position));
+                        tokens.Add(new SyntaxToken(SyntaxType.NumberToken, end_num, val));
                     }
                     else
                     {
@@ -81,41 +91,67 @@ namespace Compiler.Source
                 }
                 #endregion
 
-                #region Operation Symbols [-, +, *, /, ^] & Parenthesis
+                #region Identifiers & Keyword
+                else if (char.IsLetter((char)CurrentChar))
+                {
+                    string end_word = "";
+
+                    while (CurrentChar != null && char.IsLetterOrDigit((char)CurrentChar)) {
+                        end_word += CurrentChar;
+                        Next();
+                    }
+
+                    tokens.Add(new SyntaxToken(SyntaxType.IdentifierToken, end_word, null));
+                }
+                #endregion
+
+                #region Operation Symbols [-, --, +, ++, *, /, ^] & Parenthesis
                 else if (CurrentChar == '+')
                 {
+                    var _posStart = _position.Copy();
                     Next();
-                    tokens.Add(new SyntaxToken(SyntaxType.PlusToken, "+", null, _position));
+                    if (CurrentChar == '+')
+                    {
+                        tokens.Add(new SyntaxToken(SyntaxType.PlusPlusToken, "++", null));
+                        continue;
+                    }
+                    tokens.Add(new SyntaxToken(SyntaxType.PlusToken, "+", null));
                 }
                 else if (CurrentChar == '-')
                 {
+                    var _posStart = _position.Copy();
                     Next();
-                    tokens.Add(new SyntaxToken(SyntaxType.MinusToken, "-", null, _position));
+                    if (CurrentChar == '-')
+                    {
+                        tokens.Add(new SyntaxToken(SyntaxType.MinusMinusToken, "--", null));
+                        continue;
+                    }
+                    tokens.Add(new SyntaxToken(SyntaxType.MinusToken, "-", null));
                 }
                 else if (CurrentChar == '*')
                 {
                     Next();
-                    tokens.Add(new SyntaxToken(SyntaxType.StarToken, "*", null, _position));
+                    tokens.Add(new SyntaxToken(SyntaxType.StarToken, "*", null));
                 }
                 else if (CurrentChar == '/')
                 {
                     Next();
-                    tokens.Add(new SyntaxToken(SyntaxType.SlashToken, "/", null, _position));
+                    tokens.Add(new SyntaxToken(SyntaxType.SlashToken, "/", null));
                 }
                 else if (CurrentChar == '^')
                 {
                     Next();
-                    tokens.Add(new SyntaxToken(SyntaxType.PowToken, "^", null, _position));
+                    tokens.Add(new SyntaxToken(SyntaxType.PowToken, "^", null));
                 }
                 else if (CurrentChar == '(')
                 {
                     Next();
-                    tokens.Add(new SyntaxToken(SyntaxType.OpenParenthesisToken, "(", null, _position));
+                    tokens.Add(new SyntaxToken(SyntaxType.OpenParenthesisToken, "(", null));
                 }
                 else if (CurrentChar == ')')
                 {
                     Next();
-                    tokens.Add(new SyntaxToken(SyntaxType.CloseParenthesisToken, ")", null, _position));
+                    tokens.Add(new SyntaxToken(SyntaxType.CloseParenthesisToken, ")", null));
                 }
                 #endregion
 
@@ -123,25 +159,23 @@ namespace Compiler.Source
                 else if (CurrentChar == ';')
                 {
                     Next();
-                    tokens.Add(new SyntaxToken(SyntaxType.SemicolonToken, ";", null, _position));
+                    tokens.Add(new SyntaxToken(SyntaxType.SemicolonToken, ";", null));
                 }
                 #endregion
 
                 #region Unknown Character
                 else
                 {
-                    var _posStart = _position.Copy();
-                    char? Char = CurrentChar;
+                    _diagnostics.Append(new IllegalCharError(_position, $"'{CurrentChar}'"));
                     Next();
-                    return (Array.Empty<SyntaxToken>(), new IllegalCharError(_posStart, _position, $"'{Char}'"));
                 }
                 #endregion
             }
 
             Next();
 
-            tokens.Add(new SyntaxToken(SyntaxType.EndOfFileToken, "\0", null, _position));
-            return (tokens.ToArray(), null);
+            tokens.Add(new SyntaxToken(SyntaxType.EndOfFileToken, "\0", null));
+            return tokens.ToArray();
         }
     }
 }

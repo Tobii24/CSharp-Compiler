@@ -2,6 +2,7 @@
 using System.Linq;
 using Compiler.Source;
 using Compiler.Source.Syntax;
+using Compiler.Source.Lib;
 
 namespace Compiler
 {
@@ -9,8 +10,6 @@ namespace Compiler
     {
         static void Main()
         {
-            bool showTree = true;
-
             while (true)
             {
                 Console.Write("> ");
@@ -18,28 +17,28 @@ namespace Compiler
                 if (string.IsNullOrWhiteSpace(line))
                     return;
 
-                if (line == "#showTree")
-                {
-                    showTree = !showTree;
-                    Console.WriteLine(showTree ? "Showing parse trees." : "Not showing parse trees");
-                    continue;
-                }
-                else if (line == "#cls")
+                if (line == "#cls")
                 {
                     Console.Clear();
                     continue;
                 }
 
-                var syntaxTree = SyntaxTree.Parse("<stdin>", line);
+                var evaluator = new Evaluator("<stdin>", line);
+                var results = evaluator.Evaluate();
 
-                if (showTree)
+                var err = evaluator._diagnostics.GetIfError();
+                if (err != null)
                 {
-                    Console.ForegroundColor = ConsoleColor.DarkGray;
-                    foreach (var root in syntaxTree.Roots)
+                    err.Throw();
+                }
+                else
+                {
+                    foreach (var res in results)
                     {
-                        PrettyPrint(root);
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine(res);
+                        Console.ResetColor();
                     }
-                    Console.ResetColor();
                 }
             }
         }

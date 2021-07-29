@@ -1,6 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+
 using Compiler.Source.Syntax;
 using Compiler.Source.Errors;
+using Compiler.Source.Lib;
 
 namespace Compiler.Source
 {
@@ -8,32 +11,29 @@ namespace Compiler.Source
     {
         private readonly SyntaxToken[] _tokens;
         private Position _position;
+        public DiagnosticBag _diagnostics;
 
         public Parser(string filename, string text)
         {
             var lexer = new Lexer(filename, text);
 
-            var lexerResults = lexer.GetTokens();
-            var toks = lexerResults.Item1;
-            var err = lexerResults.Item2;
+            var toks = lexer.Lex();
 
-            if (err != null)
-                err.Throw();
-
-            _position = new Position(0, 0, 0, filename, text);
+            _position = new Position(0, 0, 0, filename);
             _tokens = toks;
+            _diagnostics = new DiagnosticBag();
+
+            _diagnostics.Extend(lexer._diagnostics);
         }
 
-        #nullable enable
-        private SyntaxToken? Peek(int offset)
+        private SyntaxToken Peek(int offset)
         {
             var index = _position.Index + offset;
             if (index < _tokens.Length)
                 return _tokens[index];
 
-            return null;
+            return _tokens[_tokens.Length - 1];
         }
-        #nullable disable
 
         private SyntaxToken Current => Peek(0);
 
@@ -44,33 +44,25 @@ namespace Compiler.Source
             return current;
         }
 
-        private (SyntaxToken, Error) MatchToken(SyntaxType type)
+        private SyntaxToken MatchToken(SyntaxType type)
         {
             if (Current.Type == type)
-                return (NextToken(), null);
+                return NextToken();
 
-            return (
-                new SyntaxToken(type, null, null, Current.PosStart, Current.PosEnd), 
-                new ExpectedTokenError(_position, Current.PosStart, $"<{type}> not <{Current.Type}>")
-                );
+            //Console.WriteLine($"{_position} {Current.PosStart}");
+            
+            var err = new ExpectedTokenError(_position, $"<{type}> not <{Current.Type}>");
+            _diagnostics.Append(err);
+
+            return new SyntaxToken(type, null, null);
         }
 
         public SyntaxTree Parse()
         {
-            if (Current == null) 
-            { 
-                return new SyntaxTree(
-                    new ExpressionSyntax[] { new ErroredExpression() }, 
-                    new SyntaxToken(SyntaxType.EndOfFileToken, null, null)
-                );  
-            }
             var expresions = ParseExpressions();
             var endOfFileToken = MatchToken(SyntaxType.EndOfFileToken);
 
-            if (endOfFileToken.Item2 != null)
-                endOfFileToken.Item2.Throw();
-
-            return new SyntaxTree(expresions, endOfFileToken.Item1);
+            return new SyntaxTree(expresions, endOfFileToken, _diagnostics);
         }
 
         private ExpressionSyntax[] ParseExpressions()
@@ -92,14 +84,7 @@ namespace Compiler.Source
             var term = ParseTerm();
 
             if (mainExpression)
-            {
-                var res = MatchToken(SyntaxType.SemicolonToken);
-                if (res.Item2 != null)
-                {
-                    res.Item2.Throw();
-                    return new ErroredExpression();
-                }
-            }
+                MatchToken(SyntaxType.SemicolonToken);
 
             return term;
         }
@@ -156,23 +141,20 @@ namespace Compiler.Source
                 var expression = ParseExpression();
                 var right = MatchToken(SyntaxType.CloseParenthesisToken);
 
-                if (right.Item2 != null)
-                {
-                    right.Item2.Throw();
-                    return new ErroredExpression();
-                }
-                return new ParenthesizedExpressionSyntax(left, expression, right.Item1);
+                return new ParenthesizedExpressionSyntax(left, expression, right);
+            }
+
+            if (Current.IsUnaryOperator())
+            {
+                var opTok = NextToken();
+                var numTok = MatchToken(SyntaxType.NumberToken);
+
+                return new UnaryExpressionSyntax(opTok, numTok);
             }
 
             var numberToken = MatchToken(SyntaxType.NumberToken);
 
-            if (numberToken.Item2 != null)
-            {
-                numberToken.Item2.Throw();
-                return new ErroredExpression();
-            } 
-
-            return new LiteralExpressionSyntax(numberToken.Item1);
+            return new LiteralExpressionSyntax(numberToken);
         }
     }
 }

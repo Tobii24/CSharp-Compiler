@@ -1,4 +1,4 @@
-﻿namespace Compiler.Source
+﻿namespace Compiler.Source.Lib
 {
     public enum SyntaxType
     {
@@ -7,18 +7,24 @@
         BadToken,
         SemicolonToken,
         NumberToken,
+        KeywordToken,
+        IdentifierToken,
         PlusToken,
+        PlusPlusToken,
         MinusToken,
+        MinusMinusToken,
         SlashToken,
         StarToken,
         PowToken,
         OpenParenthesisToken,
         CloseParenthesisToken,
+        EqualsToken,
 
         //Expressions
         ErroredExpression,
-        NumberExpression,
+        LiteralExpression,
         ParenthesizedExpression,
-        BinaryExpression
+        BinaryExpression,
+        UnaryExpression
     }
 }

@@ -1,8 +1,10 @@
-﻿namespace Compiler.Source.Errors
+﻿using Compiler.Source.Lib;
+
+namespace Compiler.Source.Errors
 {
-    class IllegalCharError : Error
+    public class IllegalCharError : Error
     {
-        public IllegalCharError(Position posStart, Position posEnd, string details)
-            : base(posStart, posEnd, "Illegal Character", details) { }
+        public IllegalCharError(Position pos, string details)
+            : base(pos, "Illegal Character", details) { }
     }
 }

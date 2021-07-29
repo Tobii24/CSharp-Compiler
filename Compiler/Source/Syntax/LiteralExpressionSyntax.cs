@@ -1,20 +1,21 @@
 ﻿using System.Collections.Generic;
+using Compiler.Source.Lib;
 
 namespace Compiler.Source.Syntax
 {
     public sealed class LiteralExpressionSyntax : ExpressionSyntax
     {
-        public LiteralExpressionSyntax(SyntaxToken numberToken)
+        public LiteralExpressionSyntax(SyntaxToken literalToken)
         {
-            NumberToken = numberToken;
+            LiteralToken = literalToken;
         }
 
-        public override SyntaxType Type => SyntaxType.NumberExpression;
-        public SyntaxToken NumberToken { get; }
+        public override SyntaxType Type => SyntaxType.LiteralExpression;
+        public SyntaxToken LiteralToken { get; }
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {
-            yield return NumberToken;
+            yield return LiteralToken;
         }
     }
 }
