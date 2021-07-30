@@ -1,8 +1,8 @@
-﻿using Compiler.Source.Lib;
+﻿using System;
+
+using Compiler.Source.Lib;
 using Compiler.Source.Syntax;
 using Compiler.Source.Errors;
-using System.Globalization;
-using System;
 
 namespace Compiler.Source.Datatypes
 {
@@ -12,7 +12,7 @@ namespace Compiler.Source.Datatypes
         //Public Variables & Abstract overrides
         public override Datatypes Type => Datatypes.Number;
         public SyntaxToken NumberToken { get; }
-        public dynamic Value { get; set; }
+        public override dynamic Value { get; set; }
 
         //Constructor
         public NumberType(SyntaxToken numberToken)
@@ -31,7 +31,7 @@ namespace Compiler.Source.Datatypes
             Value = -Value;
         }
 
-        //Operations
+        #region Operations [+, -, *, /, ^]
         public static NumberType operator +(NumberType left, NumberType right)
         {
             var value = left.Value + right.Value;
@@ -61,7 +61,7 @@ namespace Compiler.Source.Datatypes
 
         public static NumberType operator /(NumberType left, NumberType right)
         {
-            var value = left.Value / right.Value;
+            float value = (float)left.Value / (float)right.Value;
             return new NumberType(
                 new SyntaxToken(SyntaxType.NumberToken,
                 $"{value}", value
@@ -70,11 +70,12 @@ namespace Compiler.Source.Datatypes
 
         public static NumberType operator ^(NumberType left, NumberType right)
         {
-            var value = (float)Math.Pow((double)left.Value,  (double)right.Value);
+            var value = Math.Pow(left.Value, right.Value);
             return new NumberType(
                 new SyntaxToken(SyntaxType.NumberToken,
                 $"{value}", value
               ));
         }
+        #endregion
     }
 }

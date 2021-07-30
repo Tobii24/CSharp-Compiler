@@ -54,6 +54,8 @@ namespace Compiler.Source
             var err = new ExpectedTokenError(_position, $"<{type}> not <{Current.Type}>");
             _diagnostics.Append(err);
 
+            NextToken();
+
             return new SyntaxToken(type, null, null);
         }
 
@@ -81,7 +83,21 @@ namespace Compiler.Source
 
         private ExpressionSyntax ParseExpression(bool mainExpression=false)
         {
-            var term = ParseTerm();
+            if (Current.Match(SyntaxType.KeywordToken, KeywordType.DeclareVariable))
+            {
+                var declareTok = NextToken();
+                var varNameTok = MatchToken(SyntaxType.IdentifierToken);
+                var eqTok = MatchToken(SyntaxType.EqualsToken);
+                var valExpr = ParseExpression(true);
+
+                return new VarAssignExpressionSyntax(declareTok, varNameTok, eqTok, valExpr);
+            }
+
+            var term = BinaryOp(ParseComparison, 
+            new dynamic[] {
+                new dynamic[] { SyntaxType.KeywordToken, KeywordType.AndStatement },
+                new dynamic[] { SyntaxType.KeywordToken, KeywordType.OrStatement }
+            });
 
             if (mainExpression)
                 MatchToken(SyntaxType.SemicolonToken);
@@ -89,48 +105,41 @@ namespace Compiler.Source
             return term;
         }
 
-        private ExpressionSyntax ParseTerm()
+        private ExpressionSyntax ParseComparison()
         {
-            var left = ParseFactor();
-
-            while (Current.Type == SyntaxType.PlusToken ||
-                   Current.Type == SyntaxType.MinusToken)
+            if (Current.Match(SyntaxType.KeywordToken, KeywordType.NotStatement))
             {
-                var operatorToken = NextToken();
-                var right = ParseFactor();
-                left = new BinaryExpressionSyntax(left, operatorToken, right);
+                var opTok = NextToken();
+
+                var node = ParseComparison();
+                return new UnaryExpressionSyntax(opTok, node);
             }
 
-            return left;
+            var _node = BinaryOp(ParseTerm, new dynamic[]
+                { SyntaxType.EqualsEqualsToken,
+                SyntaxType.GreaterThanToken,
+                SyntaxType.LessThanToken,
+                SyntaxType.GreaterThanEqualsToken,
+                SyntaxType.GreaterThanEqualsToken,
+                SyntaxType.NotEquals }
+                );
+
+            return _node;
+        }
+
+        private ExpressionSyntax ParseTerm()
+        {
+            return BinaryOp(ParseFactor, new dynamic[] { SyntaxType.PlusToken, SyntaxType.MinusToken });
         }
 
         private ExpressionSyntax ParseFactor()
         {
-            var left = ParseAtom();
-
-            while (Current.Type == SyntaxType.StarToken ||
-                   Current.Type == SyntaxType.SlashToken)
-            {
-                var operatorToken = NextToken();
-                var right = ParsePrimaryExpression();
-                left = new BinaryExpressionSyntax(left, operatorToken, right);
-            }
-
-            return left;
+            return BinaryOp(ParseAtom, new dynamic[] { SyntaxType.StarToken, SyntaxType.SlashToken });
         }
 
         private ExpressionSyntax ParseAtom()
         {
-            var left = ParsePrimaryExpression();
-
-            while (Current.Type == SyntaxType.PowToken)
-            {
-                var operatorToken = NextToken();
-                var right = ParsePrimaryExpression();
-                left = new BinaryExpressionSyntax(left, operatorToken, right);
-            }
-
-            return left;
+            return BinaryOp(ParsePrimaryExpression, new dynamic[] { SyntaxType.PowToken, SyntaxType.PowToken });
         }
 
         private ExpressionSyntax ParsePrimaryExpression()
@@ -138,23 +147,94 @@ namespace Compiler.Source
             if (Current.Type == SyntaxType.OpenParenthesisToken)
             {
                 var left = NextToken();
-                var expression = ParseExpression();
+                var expression = ParseTerm();
                 var right = MatchToken(SyntaxType.CloseParenthesisToken);
 
                 return new ParenthesizedExpressionSyntax(left, expression, right);
             }
 
+            if (Current.Type == SyntaxType.IdentifierToken)
+            {
+                var tok = NextToken();
+                return new VarAccessExpressionSyntax(tok);
+            }
+
             if (Current.IsUnaryOperator())
             {
                 var opTok = NextToken();
-                var numTok = MatchToken(SyntaxType.NumberToken);
+                var numTok = ParseFactor();
 
                 return new UnaryExpressionSyntax(opTok, numTok);
+            }
+
+
+            if (Current.Match(SyntaxType.KeywordToken, KeywordType.IfStatement))
+            {
+                return IfExpression();
             }
 
             var numberToken = MatchToken(SyntaxType.NumberToken);
 
             return new LiteralExpressionSyntax(numberToken);
+        }
+
+        private ExpressionSyntax IfExpression()
+        {
+            var ifNameTok = NextToken();
+            var openPToken = MatchToken(SyntaxType.OpenParenthesisToken);
+            var conditionExpr = ParseExpression();
+            var closePToken = MatchToken(SyntaxType.CloseParenthesisToken);
+            var openBToken = MatchToken(SyntaxType.OpenKeyToken);
+
+            var statements = new List<ExpressionSyntax>();
+
+            do
+            {
+                var statement = ParseExpression();
+                if (statement == null)
+                    break;
+                statements.Add(statement);
+            } while (Current.Type != SyntaxType.CloseKeyToken);
+            var closeBToken = MatchToken(SyntaxType.CloseKeyToken);
+
+            return new IfExpressionSyntax(
+                ifNameTok, openPToken, conditionExpr, closePToken,
+                openBToken, statements, closeBToken
+                );
+        }
+
+        private bool In(dynamic what, dynamic[] inWhat)
+        {
+            var testArray = new dynamic[] { };
+            foreach (var item in inWhat)
+            {
+                if (item.GetType() == testArray.GetType())
+                {
+                    if (what.Type == item[0] && what.Value == item[1])
+                        return true;
+                }
+                else if (what.Type == item)
+                { return true; }
+            }
+
+            return false;
+        }
+
+        private ExpressionSyntax BinaryOp(Func<ExpressionSyntax> left, dynamic[] operators, Func<ExpressionSyntax> right =null)
+        {
+            if (right == null)
+                right = left;
+
+            var lleft = left();
+            
+            while (In(Current, operators))
+            {
+                var operatorToken = NextToken();
+                var rright = right();
+                lleft = new BinaryExpressionSyntax(lleft, operatorToken, rright);
+            }
+
+            return lleft;
         }
     }
 }

@@ -7,13 +7,21 @@ namespace Compiler.Source.Lib
     {
         public override SyntaxType Type { get; }
         public string Text { get; }
-        public object Value { get; }
+        public dynamic Value { get; }
 
         public SyntaxToken(SyntaxType type, string text, object value)
         {
             Type = type;
             Text = text;
             Value = value;
+        }
+
+        public bool Match(SyntaxType type, dynamic value=null)
+        {
+            if (value != null)
+                return Type == type && Value == value;
+            else
+                return Type == type;
         }
 
         public bool IsUnaryOperator()

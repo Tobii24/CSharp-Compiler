@@ -29,7 +29,6 @@ namespace Compiler.Source.Errors
         private string AsString()
         {
             var res = $"{ErrorName}: {Details}\n";
-            res += $"File {Pos.Filename}, line {Pos.Line + 1}";
 
             return res;
         }

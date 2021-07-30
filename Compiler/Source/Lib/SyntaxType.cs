@@ -16,15 +16,29 @@
         SlashToken,
         StarToken,
         PowToken,
+        Comma,
+        OpenKeyToken,
+        CloseKeyToken,
         OpenParenthesisToken,
         CloseParenthesisToken,
         EqualsToken,
+        EqualsEqualsToken,
+        NotEquals,
+        GreaterThanToken,
+        LessThanToken,
+        GreaterThanEqualsToken,
+        LessThanEqualsToken,
+        ArrowToken,
 
         //Expressions
         ErroredExpression,
         LiteralExpression,
         ParenthesizedExpression,
         BinaryExpression,
-        UnaryExpression
+        UnaryExpression,
+        ComparisonExpression,
+        VarAssignExpression,
+        VarAccessExpression,
+        IfExpression
     }
 }

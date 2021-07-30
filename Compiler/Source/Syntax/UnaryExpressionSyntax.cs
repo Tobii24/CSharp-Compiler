@@ -5,20 +5,20 @@ namespace Compiler.Source.Syntax
 {
     public sealed class UnaryExpressionSyntax : ExpressionSyntax
     {
-        public UnaryExpressionSyntax(SyntaxToken unaryToken, SyntaxToken literalToken) {
+        public UnaryExpressionSyntax(SyntaxToken unaryToken, ExpressionSyntax literalToken) {
             UnaryToken = unaryToken;
-            LiteralToken = literalToken;
+            PrimarySyntax = literalToken;
         }
 
         public SyntaxToken UnaryToken { get; }
-        public SyntaxToken LiteralToken { get; }
+        public ExpressionSyntax PrimarySyntax { get; }
 
         public override SyntaxType Type => SyntaxType.UnaryExpression;
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {
             yield return UnaryToken;
-            yield return LiteralToken;
+            yield return PrimarySyntax;
         }
     }
 }

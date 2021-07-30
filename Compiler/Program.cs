@@ -10,6 +10,7 @@ namespace Compiler
     {
         static void Main()
         {
+            var contxt = new Context();
             while (true)
             {
                 Console.Write("> ");
@@ -17,14 +18,8 @@ namespace Compiler
                 if (string.IsNullOrWhiteSpace(line))
                     return;
 
-                if (line == "#cls")
-                {
-                    Console.Clear();
-                    continue;
-                }
-
                 var evaluator = new Evaluator("<stdin>", line);
-                var results = evaluator.Evaluate();
+                var results = evaluator.Evaluate(contxt);
 
                 var err = evaluator._diagnostics.GetIfError();
                 if (err != null)
@@ -40,31 +35,9 @@ namespace Compiler
                         Console.ResetColor();
                     }
                 }
+
+                contxt = evaluator._context;
             }
-        }
-
-        static void PrettyPrint(SyntaxNode node, string indent = "", bool isLast = true)
-        {
-            var marker = isLast ? "└──" : "├──";
-
-            Console.Write(indent);
-            Console.Write(marker);
-            Console.Write(node.Type);
-
-            if (node is SyntaxToken t && t.Value != null)
-            {
-                Console.Write(" ");
-                Console.Write(t.Value);
-            }
-
-            Console.WriteLine();
-
-            indent += isLast ? "   " : "│   ";
-
-            var lastChild = node.GetChildren().LastOrDefault();
-
-            foreach (var child in node.GetChildren())
-                PrettyPrint(child, indent, child == lastChild);
         }
     }
 }

@@ -8,13 +8,18 @@ using Compiler.Source.Lib;
 
 namespace Compiler.Source
 {
+    public enum KeywordType
+    {
+        _,
+        DeclareVariable,
+        IfStatement,
+        AndStatement,
+        OrStatement,
+        NotStatement
+    }
+
     internal sealed class Lexer
     {
-        private enum KeywordType
-        {
-            DeclareVariable
-        }
-
         private readonly string _text;
         private Position _position;
         private Dictionary<string, KeywordType> keywordRef;
@@ -28,6 +33,10 @@ namespace Compiler.Source
             keywordRef = new Dictionary<string, KeywordType>();
 
             keywordRef.Add("declare", KeywordType.DeclareVariable);
+            keywordRef.Add("and", KeywordType.AndStatement);
+            keywordRef.Add("or", KeywordType.OrStatement);
+            keywordRef.Add("not", KeywordType.NotStatement);
+            keywordRef.Add("if", KeywordType.IfStatement);
         }
 
         private char? CurrentChar
@@ -96,19 +105,34 @@ namespace Compiler.Source
                 {
                     string end_word = "";
 
-                    while (CurrentChar != null && char.IsLetterOrDigit((char)CurrentChar)) {
+                    while (CurrentChar != null && char.IsLetterOrDigit((char)CurrentChar))
+                    {
                         end_word += CurrentChar;
                         Next();
                     }
 
-                    tokens.Add(new SyntaxToken(SyntaxType.IdentifierToken, end_word, null));
+                    bool isKeyword = false;
+                    KeywordType keywordt = KeywordType._;
+
+                    foreach (var val in keywordRef.Keys)
+                    {
+                        if (end_word == val)
+                        {
+                            isKeyword = true;
+                            isKeyword = keywordRef.TryGetValue(val, out keywordt);
+                        }
+                    }
+
+                    if (isKeyword)
+                        tokens.Add(new SyntaxToken(SyntaxType.KeywordToken, end_word, keywordt));
+                    else
+                        tokens.Add(new SyntaxToken(SyntaxType.IdentifierToken, end_word, null));
                 }
                 #endregion
 
                 #region Operation Symbols [-, --, +, ++, *, /, ^] & Parenthesis
                 else if (CurrentChar == '+')
                 {
-                    var _posStart = _position.Copy();
                     Next();
                     if (CurrentChar == '+')
                     {
@@ -119,7 +143,6 @@ namespace Compiler.Source
                 }
                 else if (CurrentChar == '-')
                 {
-                    var _posStart = _position.Copy();
                     Next();
                     if (CurrentChar == '-')
                     {
@@ -153,6 +176,59 @@ namespace Compiler.Source
                     Next();
                     tokens.Add(new SyntaxToken(SyntaxType.CloseParenthesisToken, ")", null));
                 }
+                #endregion
+
+                #region Comparison Symbols [=, ==, <, >, <=, >=, !=] & Arrow => (for inline functions)
+                else if (CurrentChar == '=')
+                {
+                    Next();
+
+                    if (CurrentChar == '=')
+                        tokens.Add(new SyntaxToken(SyntaxType.EqualsEqualsToken, "==", null));
+                    else if (CurrentChar == '>')
+                        tokens.Add(new SyntaxToken(SyntaxType.ArrowToken, "=>", null));
+                    else
+                        tokens.Add(new SyntaxToken(SyntaxType.EqualsToken, "=", null));
+                    Next();
+                }
+                else if (CurrentChar == '<')
+                {
+                    Next();
+                    if (CurrentChar == '=')
+                        tokens.Add(new SyntaxToken(SyntaxType.LessThanEqualsToken, "<=", null));
+                    else
+                        tokens.Add(new SyntaxToken(SyntaxType.LessThanToken, "<", null));
+                    Next();
+                }
+                else if (CurrentChar == '>')
+                {
+                    Next();
+                    if (CurrentChar == '=')
+                        tokens.Add(new SyntaxToken(SyntaxType.GreaterThanEqualsToken, ">=", null));
+                    else
+                        tokens.Add(new SyntaxToken(SyntaxType.GreaterThanToken, ">", null));
+                    Next();
+                }
+                else if (CurrentChar == '!')
+                {
+                    Next();
+                    if (CurrentChar == '=')
+                    {
+                        Next();
+                        tokens.Add(new SyntaxToken(SyntaxType.GreaterThanEqualsToken, ">=", null));
+                    }
+                    else
+                        _diagnostics.Append(new ExpectedCharError(_position, $"'>', not '{CurrentChar}'"));
+                }
+                #endregion
+
+                #region Extra Symbols [(,), {, }]
+                else if (CurrentChar == ',')
+                    tokens.Add(new SyntaxToken(SyntaxType.Comma, ",", null));
+                else if (CurrentChar == '{')
+                    tokens.Add(new SyntaxToken(SyntaxType.OpenKeyToken, "{", null));
+                else if (CurrentChar == '}')
+                    tokens.Add(new SyntaxToken(SyntaxType.CloseKeyToken, "}", null));
                 #endregion
 
                 #region Semicolon (newline ref)
