@@ -4,7 +4,7 @@ namespace Compiler.Source.Errors
 {
     public class RuntimeError : Error
     {
-        public RuntimeError(string details)
-            : base(new Position(0, 0, 0, ""), "Runtime Error", details) { }
+        public RuntimeError(Position pos, string details, string context)
+            : base(pos, "Runtime Error", details, context) { }
     }
 }

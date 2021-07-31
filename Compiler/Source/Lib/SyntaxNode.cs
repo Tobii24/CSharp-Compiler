@@ -8,5 +8,7 @@ namespace Compiler.Source.Lib
         public abstract IEnumerable<SyntaxNode> GetChildren();
     }
 
-    public abstract class ExpressionSyntax : SyntaxNode { }
+    public abstract class ExpressionSyntax : SyntaxNode {
+        public abstract Position Pos { get; }
+    }
 }

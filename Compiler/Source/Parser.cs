@@ -51,7 +51,7 @@ namespace Compiler.Source
 
             //Console.WriteLine($"{_position} {Current.PosStart}");
             
-            var err = new ExpectedTokenError(_position, $"<{type}> not <{Current.Type}>");
+            var err = new ExpectedTokenError(_position, $"<'{type}'> not <'{Current.Type}'>");
             _diagnostics.Append(err);
 
             NextToken();
@@ -90,7 +90,7 @@ namespace Compiler.Source
                 var eqTok = MatchToken(SyntaxType.EqualsToken);
                 var valExpr = ParseExpression(true);
 
-                return new VarAssignExpressionSyntax(declareTok, varNameTok, eqTok, valExpr);
+                return new VarAssignExpressionSyntax(_position, declareTok, varNameTok, eqTok, valExpr);
             }
 
             var term = BinaryOp(ParseComparison, 
@@ -112,7 +112,7 @@ namespace Compiler.Source
                 var opTok = NextToken();
 
                 var node = ParseComparison();
-                return new UnaryExpressionSyntax(opTok, node);
+                return new UnaryExpressionSyntax(_position, opTok, node);
             }
 
             var _node = BinaryOp(ParseTerm, new dynamic[]
@@ -150,13 +150,13 @@ namespace Compiler.Source
                 var expression = ParseTerm();
                 var right = MatchToken(SyntaxType.CloseParenthesisToken);
 
-                return new ParenthesizedExpressionSyntax(left, expression, right);
+                return new ParenthesizedExpressionSyntax(_position, left, expression, right);
             }
 
             if (Current.Type == SyntaxType.IdentifierToken)
             {
                 var tok = NextToken();
-                return new VarAccessExpressionSyntax(tok);
+                return new VarAccessExpressionSyntax(_position, tok);
             }
 
             if (Current.IsUnaryOperator())
@@ -164,18 +164,36 @@ namespace Compiler.Source
                 var opTok = NextToken();
                 var numTok = ParseFactor();
 
-                return new UnaryExpressionSyntax(opTok, numTok);
+                return new UnaryExpressionSyntax(_position, opTok, numTok);
             }
-
 
             if (Current.Match(SyntaxType.KeywordToken, KeywordType.IfStatement))
             {
                 return IfExpression();
             }
 
-            var numberToken = MatchToken(SyntaxType.NumberToken);
+            if (Current.Match(SyntaxType.NumberToken))
+            {
+                var numberToken = MatchToken(SyntaxType.NumberToken);
 
-            return new LiteralExpressionSyntax(numberToken);
+                return new LiteralExpressionSyntax(_position, numberToken);
+            }
+
+            _diagnostics.Append(
+                new ExpectedTokenError(
+                    _position,
+                    "<'LiteralExpressionSyntax'>, " +
+                    "<'UnaryExpressionSyntax'>, " +
+                    "<'VarAccessExpressionSyntax'> or " +
+                    "<'IfExpressionSyntax'> " +
+                    $"not <'{Current.Type}'>"
+                )
+            );
+
+            return new VarAccessExpressionSyntax(
+                _position,
+                new SyntaxToken(SyntaxType.IdentifierToken, "null", null)
+                );
         }
 
         private ExpressionSyntax IfExpression()
@@ -190,14 +208,13 @@ namespace Compiler.Source
 
             do
             {
-                var statement = ParseExpression();
-                if (statement == null)
-                    break;
+                var statement = ParseExpression(true);
                 statements.Add(statement);
-            } while (Current.Type != SyntaxType.CloseKeyToken);
+            } while (Current.Type != SyntaxType.CloseKeyToken && Current.Type != SyntaxType.EndOfFileToken);
             var closeBToken = MatchToken(SyntaxType.CloseKeyToken);
 
             return new IfExpressionSyntax(
+                _position,
                 ifNameTok, openPToken, conditionExpr, closePToken,
                 openBToken, statements, closeBToken
                 );
@@ -231,7 +248,7 @@ namespace Compiler.Source
             {
                 var operatorToken = NextToken();
                 var rright = right();
-                lleft = new BinaryExpressionSyntax(lleft, operatorToken, rright);
+                lleft = new BinaryExpressionSyntax(_position, lleft, operatorToken, rright);
             }
 
             return lleft;

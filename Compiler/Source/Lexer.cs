@@ -62,7 +62,7 @@ namespace Compiler.Source
             while (CurrentChar != null)
             {
                 #region Ignore indentation
-                if (CurrentChar == '\t' || CurrentChar == ' ' || CurrentChar == '\n')
+                if (CurrentChar == '\t' || CurrentChar == ' ' || CurrentChar == '\n' || CurrentChar == '\0')
                 {
                     Next();
                 }
@@ -224,11 +224,20 @@ namespace Compiler.Source
 
                 #region Extra Symbols [(,), {, }]
                 else if (CurrentChar == ',')
+                {
                     tokens.Add(new SyntaxToken(SyntaxType.Comma, ",", null));
+                    Next();
+                }
                 else if (CurrentChar == '{')
+                {
                     tokens.Add(new SyntaxToken(SyntaxType.OpenKeyToken, "{", null));
+                    Next();
+                }
                 else if (CurrentChar == '}')
+                {
                     tokens.Add(new SyntaxToken(SyntaxType.CloseKeyToken, "}", null));
+                    Next();
+                }
                 #endregion
 
                 #region Semicolon (newline ref)

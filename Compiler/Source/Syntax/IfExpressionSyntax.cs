@@ -5,8 +5,9 @@ namespace Compiler.Source.Syntax
 {
     public sealed class IfExpressionSyntax : ExpressionSyntax
     {
-        public IfExpressionSyntax(SyntaxToken ifDeclarationToken, SyntaxToken openParenthesisToken, ExpressionSyntax condition, SyntaxToken closeParenthesisToken, SyntaxToken openKeyToken, List<ExpressionSyntax> statements, SyntaxToken closeKeyToken)
+        public IfExpressionSyntax(Position pos, SyntaxToken ifDeclarationToken, SyntaxToken openParenthesisToken, ExpressionSyntax condition, SyntaxToken closeParenthesisToken, SyntaxToken openKeyToken, List<ExpressionSyntax> statements, SyntaxToken closeKeyToken)
         {
+            Pos = pos;
             IfDeclarationToken = ifDeclarationToken;
             OpenParenthesisToken = openParenthesisToken;
             Condition = condition;
@@ -16,6 +17,7 @@ namespace Compiler.Source.Syntax
             CloseKeyToken = closeKeyToken;
         }
 
+        public override Position Pos { get; }
         public override SyntaxType Type => SyntaxType.IfExpression;
         public SyntaxToken IfDeclarationToken { get; }
         public SyntaxToken OpenParenthesisToken { get; }

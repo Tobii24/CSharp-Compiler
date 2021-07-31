@@ -5,13 +5,15 @@ namespace Compiler.Source.Syntax
 {
     public sealed class BinaryExpressionSyntax : ExpressionSyntax
     {
-        public BinaryExpressionSyntax(ExpressionSyntax left, SyntaxToken operatorToken, ExpressionSyntax right)
+        public BinaryExpressionSyntax(Position pos, ExpressionSyntax left, SyntaxToken operatorToken, ExpressionSyntax right)
         {
+            Pos = pos;
             Left = left;
             OperatorToken = operatorToken;
             Right = right;
         }
 
+        public override Position Pos { get; }
         public override SyntaxType Type => SyntaxType.BinaryExpression;
         public ExpressionSyntax Left { get; }
         public SyntaxToken OperatorToken { get; }

@@ -12,7 +12,7 @@ namespace Compiler.Source
     {
         public DiagnosticBag _diagnostics;
         public ExpressionSyntax[] _roots;
-        public Context _context = new Context();
+        public Context _context;
 
         static void PrettyPrint(SyntaxNode node, string indent = "", bool isLast = true)
         {
@@ -50,7 +50,7 @@ namespace Compiler.Source
             foreach(var root in tree.Roots)
             {
                 PrettyPrint(root);
-            }*/
+            } */
 
             _diagnostics = new DiagnosticBag();
             _diagnostics.Extend(tree.Diagnostics);
@@ -58,13 +58,15 @@ namespace Compiler.Source
             _roots = tree.Roots;
         }
 
-        public object[] Evaluate(Context context=null)
+        public object[] Evaluate(Context context, ExpressionSyntax[] ROOTS=null)
         {
-            if (context != null)
-                _context = context;
+            if (ROOTS == null)
+                ROOTS = _roots;
+
+            _context = context;
 
             var results = new List<object>();
-            foreach(var root in _roots)
+            foreach(var root in ROOTS)
             {
                 results.Add(EvaluateExpression(root));
             }
@@ -95,7 +97,9 @@ namespace Compiler.Source
                 {
                     _diagnostics.Append(
                         new RuntimeError(
-                            $"Cannot perform arithmetic expression with 'null'>"
+                            node.Pos,
+                            $"Cannot perform arithmetic expression with 'null'>",
+                            _context.ContextString
                             )
                         );
                 }
@@ -111,7 +115,9 @@ namespace Compiler.Source
 
                     _diagnostics.Append(
                         new RuntimeError(
-                            $"Cannot perform binary operation (operation token <'{b.OperatorToken.Type}'>) with types <'{left.Type}'> & <'{right.Type}'>"
+                            node.Pos,
+                            $"Cannot perform binary operation (operation token <'{b.OperatorToken.Type}'>) with types <'{left.Type}'> & <'{right.Type}'>",
+                            _context.ContextString
                             )
                         );
                 }
@@ -151,7 +157,9 @@ namespace Compiler.Source
                             return left <= right;
                         default:
                             _diagnostics.Append(new RuntimeError(
-                            $"Unkown operator '{b.OperatorToken.Text}'"
+                                node.Pos,
+                            $"Unkown operator '{b.OperatorToken.Text}'",
+                            _context.ContextString
                             ));
                             return null;
                     }
@@ -171,14 +179,18 @@ namespace Compiler.Source
                         else
                         {
                             _diagnostics.Append(new RuntimeError(
-                                $"An errored occured while trying to retrieve the varible '{va.VarToken.Text}' value"
+                                node.Pos,
+                                $"An errored occured while trying to retrieve the varible '{va.VarToken.Text}' value",
+                                _context.ContextString
                                 ));
                             return null;
                         }
                     }
                 }
                 _diagnostics.Append(new RuntimeError(
-                    $"Variable '{va.VarToken.Text}' wasn't declared"
+                    node.Pos,
+                    $"Variable '{va.VarToken.Text}' wasn't declared",
+                    _context.ContextString
                     ));
             }
 
@@ -199,8 +211,31 @@ namespace Compiler.Source
                 }
             }
 
+            if (node is IfExpressionSyntax ie)
+            {
+                var condition = EvaluateExpression(ie.Condition);
+
+                if (!condition.Equals(null) && condition.IsTrue() && _diagnostics.GetIfError() == null)
+                {
+                    var newContext = _context.Clone("IfStatement");
+                    var results = new List<dynamic>();
+                    ie.Statements.ForEach(item => results.Add(EvaluateExpression(item)));
+
+                    foreach(var res in results)
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine(res);
+                        Console.ResetColor();
+                    }
+                }
+
+                return null;
+            }
+
             _diagnostics.Append(new RuntimeError(
-                $"Unknown node <'{node}'>"
+                node.Pos,
+                $"Unknown node <'{node.Type}'>",
+                _context.ContextString
                 ));
 
             return new NullType();

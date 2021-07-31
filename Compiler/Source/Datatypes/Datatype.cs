@@ -15,7 +15,14 @@ namespace Compiler.Source.Datatypes
         public abstract Datatypes Type { get; }
         public abstract dynamic Value { set; get; }
 
-        #region Comp Operations [==, !=, <, >, <=, >=]
+        #region Utils
+        public bool IsTrue()
+        {
+            return Value != null && Value != false;
+        }
+        #endregion
+
+        #region Comp Operations [==, !=, <, >, <=, >=, &, |]
         public static BooleanType operator ==(Datatype left, Datatype right)
         {
             if (left.GetType() != right.GetType()) { return new BooleanType(new SyntaxToken(SyntaxType.IdentifierToken, "false", false)); }
