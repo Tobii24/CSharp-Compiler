@@ -13,6 +13,9 @@ namespace Compiler.Source
         _,
         DeclareVariable,
         IfStatement,
+        WhileStatement,
+        BreakStatement,
+        ContinueStatement,
         AndStatement,
         OrStatement,
         NotStatement
@@ -37,6 +40,9 @@ namespace Compiler.Source
             keywordRef.Add("or", KeywordType.OrStatement);
             keywordRef.Add("not", KeywordType.NotStatement);
             keywordRef.Add("if", KeywordType.IfStatement);
+            keywordRef.Add("while", KeywordType.WhileStatement);
+            keywordRef.Add("continue", KeywordType.ContinueStatement);
+            keywordRef.Add("break", KeywordType.BreakStatement);
         }
 
         private char? CurrentChar
@@ -62,7 +68,7 @@ namespace Compiler.Source
             while (CurrentChar != null)
             {
                 #region Ignore indentation
-                if (CurrentChar == '\t' || CurrentChar == ' ' || CurrentChar == '\n' || CurrentChar == '\0')
+                if (char.IsControl((char)CurrentChar) || char.IsWhiteSpace((char)CurrentChar))
                 {
                     Next();
                 }
@@ -184,30 +190,39 @@ namespace Compiler.Source
                     Next();
 
                     if (CurrentChar == '=')
+                    {
+                        Next();
                         tokens.Add(new SyntaxToken(SyntaxType.EqualsEqualsToken, "==", null));
+                    }
                     else if (CurrentChar == '>')
+                    {
+                        Next();
                         tokens.Add(new SyntaxToken(SyntaxType.ArrowToken, "=>", null));
+                    }
                     else
                         tokens.Add(new SyntaxToken(SyntaxType.EqualsToken, "=", null));
-                    Next();
                 }
                 else if (CurrentChar == '<')
                 {
                     Next();
                     if (CurrentChar == '=')
+                    {
+                        Next();
                         tokens.Add(new SyntaxToken(SyntaxType.LessThanEqualsToken, "<=", null));
+                    }
                     else
                         tokens.Add(new SyntaxToken(SyntaxType.LessThanToken, "<", null));
-                    Next();
                 }
                 else if (CurrentChar == '>')
                 {
                     Next();
                     if (CurrentChar == '=')
+                    {
+                        Next();
                         tokens.Add(new SyntaxToken(SyntaxType.GreaterThanEqualsToken, ">=", null));
+                    }
                     else
                         tokens.Add(new SyntaxToken(SyntaxType.GreaterThanToken, ">", null));
-                    Next();
                 }
                 else if (CurrentChar == '!')
                 {
@@ -225,7 +240,7 @@ namespace Compiler.Source
                 #region Extra Symbols [(,), {, }]
                 else if (CurrentChar == ',')
                 {
-                    tokens.Add(new SyntaxToken(SyntaxType.Comma, ",", null));
+                    tokens.Add(new SyntaxToken(SyntaxType.CommaToken, ",", null));
                     Next();
                 }
                 else if (CurrentChar == '{')

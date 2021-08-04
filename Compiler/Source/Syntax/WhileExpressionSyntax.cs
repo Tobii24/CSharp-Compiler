@@ -4,12 +4,12 @@ using Compiler.Source.Lib;
 
 namespace Compiler.Source.Syntax
 {
-    public sealed class IfExpressionSyntax : ExpressionSyntax
+    public sealed class WhileExpressionSyntax : ExpressionSyntax
     {
-        public IfExpressionSyntax(Position pos, SyntaxToken ifDeclarationToken, SyntaxToken openParenthesisToken, ExpressionSyntax condition, SyntaxToken closeParenthesisToken, SyntaxToken openKeyToken, List<ExpressionSyntax> statements, SyntaxToken closeKeyToken)
+        public WhileExpressionSyntax(Position pos, SyntaxToken whileDeclarationToken, SyntaxToken openParenthesisToken, ExpressionSyntax condition, SyntaxToken closeParenthesisToken, SyntaxToken openKeyToken, List<ExpressionSyntax> statements, SyntaxToken closeKeyToken)
         {
             Pos = pos;
-            IfDeclarationToken = ifDeclarationToken;
+            WhileDeclarationToken = whileDeclarationToken;
             OpenParenthesisToken = openParenthesisToken;
             Condition = condition;
             CloseParenthesisToken = closeParenthesisToken;
@@ -20,7 +20,7 @@ namespace Compiler.Source.Syntax
 
         public override Position Pos { get; }
         public override SyntaxType Type => SyntaxType.IfExpression;
-        public SyntaxToken IfDeclarationToken { get; }
+        public SyntaxToken WhileDeclarationToken { get; }
         public SyntaxToken OpenParenthesisToken { get; }
         public ExpressionSyntax Condition { get; }
         public SyntaxToken CloseParenthesisToken { get; }
@@ -30,12 +30,12 @@ namespace Compiler.Source.Syntax
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {
-            yield return IfDeclarationToken;
+            yield return WhileDeclarationToken;
             yield return OpenParenthesisToken;
             yield return Condition;
             yield return CloseParenthesisToken;
             yield return OpenKeyToken;
-            foreach(var statement in Statements)
+            foreach (var statement in Statements)
             {
                 yield return statement;
             }

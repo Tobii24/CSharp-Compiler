@@ -12,18 +12,18 @@ namespace Compiler.Source.Datatypes
         public override Datatypes Type => Datatypes.Boolean;
         public SyntaxToken BoolToken { get; }
         public override dynamic Value { get; set; }
+        public override bool CanArithmetic => false;
+        public override (Datatype, Error) Notted(Position pos, Context currentContext)
+        {
+            Value = !Value;
+            return (this, null);
+        }
 
         //Constructor
         public BooleanType(SyntaxToken boolToken)
         {
             BoolToken = boolToken;
             Value = boolToken.Value;
-        }
-
-        //Utils
-        public void Negate()
-        {
-            Value = !Value;
         }
 
         //String representation

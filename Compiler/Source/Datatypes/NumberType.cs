@@ -3,6 +3,7 @@
 using Compiler.Source.Lib;
 using Compiler.Source.Syntax;
 using Compiler.Source.Errors;
+using System.Xml.Linq;
 
 namespace Compiler.Source.Datatypes
 {
@@ -13,6 +14,12 @@ namespace Compiler.Source.Datatypes
         public override Datatypes Type => Datatypes.Number;
         public SyntaxToken NumberToken { get; }
         public override dynamic Value { get; set; }
+        public override bool CanArithmetic => true;
+        public override (Datatype, Error?) Notted(Position pos, Context currentContext)
+        {
+            Value = -Value;
+            return (this, null);
+        }
 
         //Constructor
         public NumberType(SyntaxToken numberToken)
@@ -25,56 +32,75 @@ namespace Compiler.Source.Datatypes
         //String representation
         public override string ToString() => Value.ToString();
 
-        //Utils
-        public void Negate()
+        #region Arithmetic Operations
+        public NumberType Add(NumberType right)
         {
-            Value = -Value;
+            var res = this.Value + right.Value;
+            return new NumberType(
+                new SyntaxToken(
+                    SyntaxType.NumberToken,
+                    $"{res}",
+                    res
+                )
+            );
         }
 
-        #region Operations [+, -, *, /, ^]
-        public static NumberType operator +(NumberType left, NumberType right)
+        public NumberType Minus(NumberType right)
         {
-            var value = left.Value + right.Value;
+            var res = this.Value - right.Value;
             return new NumberType(
-                new SyntaxToken(SyntaxType.NumberToken, 
-                $"{value}", value
-              ));
+                new SyntaxToken(
+                    SyntaxType.NumberToken,
+                    $"{res}",
+                    res
+                )
+            );
         }
 
-        public static NumberType operator -(NumberType left, NumberType right)
+        public NumberType Times(NumberType right)
         {
-            var value = left.Value - right.Value;
+            var res = this.Value * right.Value;
             return new NumberType(
-                new SyntaxToken(SyntaxType.NumberToken,
-                $"{value}", value
-              ));
+                new SyntaxToken(
+                    SyntaxType.NumberToken,
+                    $"{res}",
+                    res
+                )
+            );
         }
 
-        public static NumberType operator *(NumberType left, NumberType right)
+        public (NumberType, Error) Divided(NumberType right, Position pos, Context context)
         {
-            var value = left.Value * right.Value;
-            return new NumberType(
-                new SyntaxToken(SyntaxType.NumberToken,
-                $"{value}", value
-              ));
+            if (right.Value == 0)
+            {
+                return (null,
+                    new RuntimeError(
+                    pos,
+                    "Cannot divide by '0'",
+                    context.ContextString
+                ));
+            }
+
+            var res = this.Value / right.Value;
+            return (new NumberType(
+                new SyntaxToken(
+                    SyntaxType.NumberToken,
+                    $"{res}",
+                    res
+                )
+            ), null);
         }
 
-        public static NumberType operator /(NumberType left, NumberType right)
+        public NumberType Pow(NumberType right)
         {
-            float value = (float)left.Value / (float)right.Value;
+            var res = (float)Math.Pow((float)this.Value, (float)right.Value);
             return new NumberType(
-                new SyntaxToken(SyntaxType.NumberToken,
-                $"{value}", value
-              ));
-        }
-
-        public static NumberType operator ^(NumberType left, NumberType right)
-        {
-            var value = Math.Pow(left.Value, right.Value);
-            return new NumberType(
-                new SyntaxToken(SyntaxType.NumberToken,
-                $"{value}", value
-              ));
+                new SyntaxToken(
+                    SyntaxType.NumberToken,
+                    $"{res}",
+                    res
+                )
+            );
         }
         #endregion
     }

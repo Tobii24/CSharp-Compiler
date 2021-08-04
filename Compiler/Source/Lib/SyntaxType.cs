@@ -16,7 +16,7 @@
         SlashToken,
         StarToken,
         PowToken,
-        Comma,
+        CommaToken,
         OpenKeyToken,
         CloseKeyToken,
         OpenParenthesisToken,

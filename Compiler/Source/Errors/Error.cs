@@ -29,6 +29,7 @@ namespace Compiler.Source.Errors
         private string AsString()
         {
             var res = $"{ErrorName}: {Details}\n";
+            res += $"At line {Pos.Line + 1}";
             if (Context != "")
                 res += $"Context -> {Context}";
 

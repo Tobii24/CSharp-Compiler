@@ -1,10 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Compiler.Source.Datatypes;
+using Compiler.Source.Errors;
 using Compiler.Source.Lib;
 using Compiler.Source.Syntax;
-using Compiler.Source.Datatypes;
-using Compiler.Source.Errors;
-using System.Linq;
+using System;
 
 namespace Compiler.Source
 {
@@ -12,45 +10,12 @@ namespace Compiler.Source
     {
         public DiagnosticBag _diagnostics;
         public ExpressionSyntax[] _roots;
-        public Context _context;
-
-        static void PrettyPrint(SyntaxNode node, string indent = "", bool isLast = true)
-        {
-            var marker = isLast ? "└──" : "├──";
-
-            Console.Write(indent);
-            Console.Write(marker);
-            Console.Write(node.Type);
-
-            if (node is SyntaxToken st)
-            {
-                if (st.Value != null)
-                {
-                    Console.Write(" ");
-                    Console.Write(st.Value);
-                }
-            }
-
-            Console.WriteLine();
-
-            indent += isLast ? "   " : "│   ";
-
-            var lastChild = node.GetChildren().LastOrDefault();
-
-            foreach (var child in node.GetChildren())
-                PrettyPrint(child, indent, child == lastChild);
-        }
+        private SyntaxTree tree;
 
         public Evaluator(string filename, string text)
         {
             var parser = new Parser(filename, text);
-            var tree = parser.Parse();
-
-            /* // Print syntax tree
-            foreach(var root in tree.Roots)
-            {
-                PrettyPrint(root);
-            } */
+            tree = parser.Parse();
 
             _diagnostics = new DiagnosticBag();
             _diagnostics.Extend(tree.Diagnostics);
@@ -58,187 +23,216 @@ namespace Compiler.Source
             _roots = tree.Roots;
         }
 
-        public object[] Evaluate(Context context, ExpressionSyntax[] ROOTS=null)
+        public void Evaluate(Context context, bool PrintSyntaxTree = false)
         {
-            if (ROOTS == null)
-                ROOTS = _roots;
+            if (PrintSyntaxTree)
+                tree.Log();
 
-            _context = context;
-
-            var results = new List<object>();
-            foreach(var root in ROOTS)
+            var err = _diagnostics.GetIfError();
+            if (err != null)
             {
-                results.Add(EvaluateExpression(root));
+                err.Throw();
             }
-
-            return results.ToArray();
+            else
+            {
+                foreach (var root in _roots)
+                {
+                    var res = EvaluateExpression(root, context);
+                    if (res.Err != null)
+                    {
+                        res.Err.Throw();
+                        break;
+                    }
+                    else if (res.Value != null)
+                    {
+                        Console.WriteLine(res.Value);
+                    }
+                }
+            }
         }
 
-        private dynamic EvaluateExpression(ExpressionSyntax node)
+        private RuntimeResult EvaluateExpression(ExpressionSyntax node, Context context)
         {
             if (node is LiteralExpressionSyntax n)
-            { return new NumberType(n.LiteralToken); }
-
-            if (node is UnaryExpressionSyntax un)
             {
-                var parsd = EvaluateExpression(un.PrimarySyntax);
-                if (un.UnaryToken.Type == SyntaxType.MinusToken || un.UnaryToken.Value == KeywordType.NotStatement)
-                    parsd.Negate();
-
-                return parsd;
+                return new RuntimeResult().Success(
+                    new NumberType(n.LiteralToken)
+                    );
             }
 
-            if (node is BinaryExpressionSyntax b)
+            if (node is UnaryExpressionSyntax ue)
             {
-                var left = EvaluateExpression(b.Left);
-                var right = EvaluateExpression(b.Right);
+                var res = new RuntimeResult();
+                var num = res.Register(EvaluateExpression(ue.PrimarySyntax, context));
+                if (res.ShouldReturn()) { return res; }
 
-                if (left.Equals(null) || right.Equals(null))
+                (Datatype, Error) result;
+
+                switch (ue.UnaryToken.Type)
                 {
-                    _diagnostics.Append(
-                        new RuntimeError(
-                            node.Pos,
-                            $"Cannot perform arithmetic expression with 'null'>",
-                            _context.ContextString
+                    case SyntaxType.MinusToken:
+                        result = num.Notted(ue.Pos, context);
+                        break;
+                    case SyntaxType.PlusToken:
+                        result = (num, null);
+                        break;
+                    default:
+                        return res.Failure(
+                            new RuntimeError(
+                                ue.Pos,
+                                $"Unknown unary operator <{ue.UnaryToken.Type}>",
+                                context.ContextString
                             )
                         );
                 }
-                else if (left.GetType() != right.GetType())
-                {
-                    switch (b.OperatorToken.Value)
-                    {
-                        case KeywordType.AndStatement:
-                            return left & right;
-                        case KeywordType.OrStatement:
-                            return left | right;
-                    }
 
-                    _diagnostics.Append(
-                        new RuntimeError(
-                            node.Pos,
-                            $"Cannot perform binary operation (operation token <'{b.OperatorToken.Type}'>) with types <'{left.Type}'> & <'{right.Type}'>",
-                            _context.ContextString
-                            )
-                        );
-                }
+                var retrieved = result.Item1;
+                var err = result.Item2;
+
+                if (err == null)
+                    return res.Success(retrieved);
                 else
-                {
-                    switch (b.OperatorToken.Value)
-                    {
-                        case KeywordType.AndStatement:
-                            return left & right;
-                        case KeywordType.OrStatement:
-                            return left | right;
-                    }
-
-                    switch (b.OperatorToken.Type)
-                    {
-                        case SyntaxType.PlusToken:
-                            return left + right;
-                        case SyntaxType.MinusToken:
-                            return left - right;
-                        case SyntaxType.StarToken:
-                            return left * right;
-                        case SyntaxType.SlashToken:
-                            return left / right;
-                        case SyntaxType.PowToken:
-                            return left ^ right;
-                        case SyntaxType.EqualsEqualsToken:
-                            return left == right;
-                        case SyntaxType.NotEquals:
-                            return left != right;
-                        case SyntaxType.GreaterThanToken:
-                            return left > right;
-                        case SyntaxType.LessThanToken:
-                            return left < right;
-                        case SyntaxType.GreaterThanEqualsToken:
-                            return left >= right;
-                        case SyntaxType.LessThanEqualsToken:
-                            return left <= right;
-                        default:
-                            _diagnostics.Append(new RuntimeError(
-                                node.Pos,
-                            $"Unkown operator '{b.OperatorToken.Text}'",
-                            _context.ContextString
-                            ));
-                            return null;
-                    }
-                }
+                    return res.Failure(err);
             }
 
-            if (node is ParenthesizedExpressionSyntax pe)
-            { return EvaluateExpression(pe.Expression); }
+            if (node is BinaryExpressionSyntax be)
+            {
+                var res = new RuntimeResult();
+                var left = res.Register(EvaluateExpression(be.Left, context));
+                if (res.ShouldReturn()) { return res; }
+                var right = res.Register(EvaluateExpression(be.Right, context));
+                if (res.ShouldReturn()) { return res; }
+
+                var check = Datatype.Check(be.OperatorToken.Text, be.Pos, context, left, right);
+                if (check != null) 
+                    return res.Failure(check);
+
+                if (!left.CanArithmetic || !right.CanArithmetic)
+                {
+                    return res.Failure(
+                        new RuntimeError(
+                            be.Pos,
+                            $"Types <{left.Type}> or/and <{right.Type}> don't support arithmetic operations",
+                            context.ContextString
+                        )
+                    );
+                }
+
+                dynamic retrieved;
+                dynamic resVal;
+
+                switch (be.OperatorToken.Type)
+                {
+                    case SyntaxType.PlusToken:
+                        resVal = left.Add(right);
+                        break;
+                    case SyntaxType.MinusToken:
+                        resVal = left.Minus(right);
+                        break;
+                    case SyntaxType.StarToken:
+                        resVal = left.Times(right);
+                        break;
+                    case SyntaxType.SlashToken:
+                        retrieved = left.Divided(right, be.Pos, context);
+                        if (retrieved.Item2 != null)
+                            return res.Failure(retrieved.Item2);
+                        resVal = retrieved.Item1;
+                        break;
+                    case SyntaxType.PowToken:
+                        resVal = left.Pow(right);
+                        break;
+                    case SyntaxType.EqualsEqualsToken:
+                        retrieved = left.EqualsTo(be.Pos, context, right);
+                        if (retrieved.Item2 != null)
+                            return res.Failure(retrieved.Item2);
+                        resVal = retrieved.Item1;
+                        break;
+                    case SyntaxType.NotEquals:
+                        retrieved = left.NotEqualsTo(be.Pos, context, right);
+                        if (retrieved.Item2 != null)
+                            return res.Failure(retrieved.Item2);
+                        resVal = retrieved.Item1;
+                        break;
+                    case SyntaxType.GreaterThanToken:
+                        retrieved = left.GreaterThan(be.Pos, context, right);
+                        if (retrieved.Item2 != null)
+                            return res.Failure(retrieved.Item2);
+                        resVal = retrieved.Item1;
+                        break;
+                    case SyntaxType.LessThanToken:
+                        retrieved = left.LessThan(be.Pos, context, right);
+                        if (retrieved.Item2 != null)
+                            return res.Failure(retrieved.Item2);
+                        resVal = retrieved.Item1;
+                        break;
+                    case SyntaxType.GreaterThanEqualsToken:
+                        retrieved = left.GreaterThanEquals(be.Pos, context, right);
+                        if (retrieved.Item2 != null)
+                            return res.Failure(retrieved.Item2);
+                        resVal = retrieved.Item1;
+                        break;
+                    case SyntaxType.LessThanEqualsToken:
+                        retrieved = left.LessThanEquals(be.Pos, context, right);
+                        if (retrieved.Item2 != null)
+                            return res.Failure(retrieved.Item2);
+                        resVal = retrieved.Item1;
+                        break;
+                    default:
+                        return res.Failure(
+                        new RuntimeError(
+                            be.Pos,
+                            $"Unknown arithmetic operator '{be.OperatorToken.Text}'",
+                            context.ContextString
+                        )
+                    );
+                }
+                return res.Success(resVal);
+            }
 
             if (node is VarAccessExpressionSyntax va)
             {
-                foreach(var name in _context.Variables.Keys)
+                var res = new RuntimeResult();
+                var varName = va.VarToken.Text;
+
+                foreach (var existingVarName in context.Variables.Keys)
                 {
-                    if (name == va.VarToken.Text)
+                    if (varName == existingVarName)
                     {
-                        if (_context.Variables.TryGetValue(name, out var val)) { return val; }
+                        if (context.Variables.TryGetValue(varName, out var varVal))
+                            return res.Success(varVal);
                         else
-                        {
-                            _diagnostics.Append(new RuntimeError(
-                                node.Pos,
-                                $"An errored occured while trying to retrieve the varible '{va.VarToken.Text}' value",
-                                _context.ContextString
-                                ));
-                            return null;
-                        }
+                            return res.Failure(
+                                new RuntimeError(
+                                    va.Pos,
+                                    $"An unexpected error ocurred trying to get the variable '{varName}' value",
+                                    context.ContextString
+                                )
+                            );
                     }
                 }
-                _diagnostics.Append(new RuntimeError(
-                    node.Pos,
-                    $"Variable '{va.VarToken.Text}' wasn't declared",
-                    _context.ContextString
-                    ));
+
+                return res.Failure(
+                        new RuntimeError(
+                            va.Pos,
+                            $"Variable '{varName}' is not declared",
+                            context.ContextString
+                        )
+                    );
             }
 
-            if (node is VarAssignExpressionSyntax vas)
+            /*if (node is VarAssignExpressionSyntax vas)
             {
+                var res = new RuntimeResult();
                 var varName = vas.VarToken.Text;
-                var val = EvaluateExpression(vas.ValueToken);
+                var varVal = vas.ValueToken;
+            }*/
 
-                if (varName != null)
-                {
-                    foreach(var existingVarName in _context.Variables.Keys)
-                    {
-                        if (varName == existingVarName)
-                            _context.Variables.Remove(varName);
-                    } 
-                    _context.Variables.Add(varName, val);
-                    return null;
-                }
-            }
-
-            if (node is IfExpressionSyntax ie)
-            {
-                var condition = EvaluateExpression(ie.Condition);
-
-                if (!condition.Equals(null) && condition.IsTrue() && _diagnostics.GetIfError() == null)
-                {
-                    var newContext = _context.Clone("IfStatement");
-                    var results = new List<dynamic>();
-                    ie.Statements.ForEach(item => results.Add(EvaluateExpression(item)));
-
-                    foreach(var res in results)
-                    {
-                        Console.ForegroundColor = ConsoleColor.DarkGray;
-                        Console.WriteLine(res);
-                        Console.ResetColor();
-                    }
-                }
-
-                return null;
-            }
-
-            _diagnostics.Append(new RuntimeError(
-                node.Pos,
-                $"Unknown node <'{node.Type}'>",
-                _context.ContextString
+            return new RuntimeResult().Failure(
+                new RuntimeError(
+                    node.Pos,
+                    $"Unknown node <'{node.Type}'>",
+                    context.ContextString
                 ));
-
-            return new NullType();
         }
     }
 }

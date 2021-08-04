@@ -61,18 +61,18 @@ namespace Compiler.Source
 
         public SyntaxTree Parse()
         {
-            var expresions = ParseExpressions();
+            var expresions = ParseStatements();
             var endOfFileToken = MatchToken(SyntaxType.EndOfFileToken);
 
             return new SyntaxTree(expresions, endOfFileToken, _diagnostics);
         }
 
-        private ExpressionSyntax[] ParseExpressions()
+        private ExpressionSyntax[] ParseStatements()
         {
             var expressions = new List<ExpressionSyntax>();
             do
             {
-                var expr = ParseExpression(true);
+                var expr = ParseStatement(true);
                 expressions.Add(expr);
 
                 if (Current.Type == SyntaxType.EndOfFileToken)
@@ -81,7 +81,27 @@ namespace Compiler.Source
             return expressions.ToArray();
         }
 
-        private ExpressionSyntax ParseExpression(bool mainExpression=false)
+        private ExpressionSyntax ParseStatement(bool mainExpression = false)
+        {
+            if (Current.Match(SyntaxType.KeywordToken, KeywordType.BreakStatement))
+            {
+                var tok = NextToken();
+                MatchToken(SyntaxType.SemicolonToken);
+                return new BreakExpressionSyntax(_position, tok);
+            }
+            else if (Current.Match(SyntaxType.KeywordToken, KeywordType.ContinueStatement))
+            {
+                var tok = NextToken();
+                MatchToken(SyntaxType.SemicolonToken);
+                return new ContinueExpressionSyntax(_position, tok);
+            }
+            else
+            {
+                return ParseExpression(mainExpression);
+            }
+        }
+
+        private ExpressionSyntax ParseExpression(bool mainExpression = false)
         {
             if (Current.Match(SyntaxType.KeywordToken, KeywordType.DeclareVariable))
             {
@@ -115,13 +135,17 @@ namespace Compiler.Source
                 return new UnaryExpressionSyntax(_position, opTok, node);
             }
 
-            var _node = BinaryOp(ParseTerm, new dynamic[]
-                { SyntaxType.EqualsEqualsToken,
-                SyntaxType.GreaterThanToken,
-                SyntaxType.LessThanToken,
-                SyntaxType.GreaterThanEqualsToken,
-                SyntaxType.GreaterThanEqualsToken,
-                SyntaxType.NotEquals }
+            var _node = BinaryOp(
+                ParseTerm, 
+                new dynamic[]
+                    {
+                        SyntaxType.EqualsEqualsToken,
+                        SyntaxType.GreaterThanToken,
+                        SyntaxType.GreaterThanEqualsToken,
+                        SyntaxType.LessThanToken,
+                        SyntaxType.LessThanEqualsToken,
+                        SyntaxType.NotEquals 
+                    }
                 );
 
             return _node;
@@ -172,6 +196,11 @@ namespace Compiler.Source
                 return IfExpression();
             }
 
+            if (Current.Match(SyntaxType.KeywordToken, KeywordType.WhileStatement))
+            {
+                return WhileExpression();
+            }
+
             if (Current.Match(SyntaxType.NumberToken))
             {
                 var numberToken = MatchToken(SyntaxType.NumberToken);
@@ -190,9 +219,9 @@ namespace Compiler.Source
                 )
             );
 
-            return new VarAccessExpressionSyntax(
+            return new LiteralExpressionSyntax(
                 _position,
-                new SyntaxToken(SyntaxType.IdentifierToken, "null", null)
+                new SyntaxToken(SyntaxType.NumberToken, "0", 0)
                 );
         }
 
@@ -208,7 +237,7 @@ namespace Compiler.Source
 
             do
             {
-                var statement = ParseExpression(true);
+                var statement = ParseStatement(true);
                 statements.Add(statement);
             } while (Current.Type != SyntaxType.CloseKeyToken && Current.Type != SyntaxType.EndOfFileToken);
             var closeBToken = MatchToken(SyntaxType.CloseKeyToken);
@@ -216,6 +245,31 @@ namespace Compiler.Source
             return new IfExpressionSyntax(
                 _position,
                 ifNameTok, openPToken, conditionExpr, closePToken,
+                openBToken, statements, closeBToken
+                );
+        }
+
+        private ExpressionSyntax WhileExpression()
+        {
+            var whileNameTok = NextToken();
+            var openPToken = MatchToken(SyntaxType.OpenParenthesisToken);
+            var conditionExpr = ParseExpression();
+            var closePToken = MatchToken(SyntaxType.CloseParenthesisToken);
+            var openBToken = MatchToken(SyntaxType.OpenKeyToken);
+
+            var statements = new List<ExpressionSyntax>();
+
+            do
+            {
+                var statement = ParseStatement(true);
+                statements.Add(statement);
+            } while (Current.Type != SyntaxType.CloseKeyToken && Current.Type != SyntaxType.EndOfFileToken);
+            
+            var closeBToken = MatchToken(SyntaxType.CloseKeyToken);
+
+            return new WhileExpressionSyntax(
+                _position,
+                whileNameTok, openPToken, conditionExpr, closePToken,
                 openBToken, statements, closeBToken
                 );
         }
@@ -243,7 +297,7 @@ namespace Compiler.Source
                 right = left;
 
             var lleft = left();
-            
+
             while (In(Current, operators))
             {
                 var operatorToken = NextToken();
